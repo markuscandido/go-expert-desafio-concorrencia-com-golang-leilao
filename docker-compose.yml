@@ -1,0 +1,59 @@
+# =============================================================================
+# Docker Compose - Auction System
+# =============================================================================
+# Variáveis de ambiente são carregadas do arquivo cmd/auction/.env
+# Copie cmd/auction/.env.example para cmd/auction/.env e configure
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Aplicação Go
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    container_name: auction-app
+    ports:
+      - "8080:8080"
+    env_file:
+      - cmd/auction/.env
+    environment:
+      # MongoDB Connection
+      - MONGODB_HOST=${MONGODB_HOST}
+      - MONGODB_PORT=${MONGODB_PORT}
+      - MONGODB_USER=${MONGODB_USER}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DB=${MONGODB_DB}
+      # Auction Settings
+      - AUCTION_INTERVAL=${AUCTION_INTERVAL}
+      # Bid Batch Settings
+      - BATCH_INSERT_INTERVAL=${BATCH_INSERT_INTERVAL}
+      - MAX_BATCH_SIZE=${MAX_BATCH_SIZE}
+    depends_on:
+      - mongodb
+    networks:
+      - localNetwork
+
+  # ---------------------------------------------------------------------------
+  # MongoDB
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    env_file:
+      - cmd/auction/.env
+    environment:
+      # MongoDB Authentication (uses same vars from .env)
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+    volumes:
+      - ./.docker/mongo:/data/db
+    networks:
+      - localNetwork
+
+networks:
+  localNetwork:
+    driver: bridge

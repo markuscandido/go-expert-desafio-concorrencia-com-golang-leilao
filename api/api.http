@@ -1,0 +1,163 @@
+# =============================================================================
+# API HTTP - Auction System
+# =============================================================================
+# Este arquivo contém exemplos de todas as requisições CRUD da API de Leilões.
+# Utilize uma extensão como REST Client (VS Code) ou httpYac para executar.
+# =============================================================================
+
+@baseUrl = http://localhost:8080
+
+###############################################################################
+# AUCTIONS - Leilões
+###############################################################################
+
+### Criar um novo leilão (CREATE)
+# Condition: 0 = Novo, 1 = Usado, 2 = Recondicionado
+POST {{baseUrl}}/auction
+Content-Type: application/json
+
+{
+    "product_name": "iPhone 15 Pro Max",
+    "category": "eletronicos",
+    "description": "iPhone 15 Pro Max 256GB, Titânio Azul, lacrado na caixa",
+    "condition": 0
+}
+
+### Criar leilão - Produto Usado
+POST {{baseUrl}}/auction
+Content-Type: application/json
+
+{
+    "product_name": "MacBook Pro M2",
+    "category": "eletronicos",
+    "description": "MacBook Pro M2 14 polegadas, 16GB RAM, 512GB SSD, excelente estado",
+    "condition": 1
+}
+
+### Criar leilão - Produto Recondicionado
+POST {{baseUrl}}/auction
+Content-Type: application/json
+
+{
+    "product_name": "PlayStation 5",
+    "category": "games",
+    "description": "PlayStation 5 recondicionado pela Sony, com garantia de 6 meses",
+    "condition": 2
+}
+
+### Listar leilões por status (READ - Lista)
+# Status: 0 = Ativo, 1 = Completo
+GET {{baseUrl}}/auction?status=0&category=eletronicos
+
+### Listar todos os leilões ativos
+GET {{baseUrl}}/auction?status=0&category=&productName=
+
+### Listar leilões completos
+GET {{baseUrl}}/auction?status=1&category=&productName=
+
+### Buscar leilão por ID (READ - Individual)
+# Substitua o UUID pelo ID de um leilão existente
+@auctionId = 3ab30854-1aa0-4d59-a8b1-7595129e53a6
+GET {{baseUrl}}/auction/{{auctionId}}
+
+### Buscar lance vencedor do leilão
+GET {{baseUrl}}/auction/winner/{{auctionId}}
+
+###############################################################################
+# BIDS - Lances
+###############################################################################
+@userId = 8779dce1-3266-4990-a0e2-9ffd5a091ac3
+### Criar um novo lance (CREATE)
+# Substitua user_id e auction_id por IDs válidos
+POST {{baseUrl}}/bid
+Content-Type: application/json
+
+{
+    "user_id": "{{userId}}",
+    "auction_id": "{{auctionId}}",
+    "amount": 1500.50
+}
+
+### Criar outro lance (valor maior)
+POST {{baseUrl}}/bid
+Content-Type: application/json
+
+{
+    "user_id": "{{userId}}",
+    "auction_id": "{{auctionId}}",
+    "amount": 1800.00
+}
+
+### Criar lance de outro usuário
+POST {{baseUrl}}/bid
+Content-Type: application/json
+
+{
+    "user_id": "{{userId}}",
+    "auction_id": "{{auctionId}}",
+    "amount": 4000.00
+}
+
+### Listar todos os lances de um leilão (READ - Lista)
+GET {{baseUrl}}/bid/{{auctionId}}
+
+###############################################################################
+# USERS - Usuários
+###############################################################################
+
+### Buscar usuário por ID (READ)
+GET {{baseUrl}}/user/{{userId}}
+
+###############################################################################
+# CENÁRIOS DE ERRO
+###############################################################################
+
+### Erro: Criar leilão sem campos obrigatórios
+POST {{baseUrl}}/auction
+Content-Type: application/json
+
+{
+    "product_name": "",
+    "category": "",
+    "description": "",
+    "condition": 0
+}
+
+### Erro: Criar leilão com descrição muito curta
+POST {{baseUrl}}/auction
+Content-Type: application/json
+
+{
+    "product_name": "Produto Teste",
+    "category": "teste",
+    "description": "curta",
+    "condition": 0
+}
+
+### Erro: Buscar leilão com UUID inválido
+GET {{baseUrl}}/auction/invalid-uuid
+
+### Erro: Buscar leilão inexistente
+GET {{baseUrl}}/auction/00000000-0000-0000-0000-000000000000
+
+### Erro: Listar leilões sem status
+GET {{baseUrl}}/auction?category=eletronicos
+
+### Erro: Buscar usuário com UUID inválido
+GET {{baseUrl}}/user/invalid-uuid
+
+###############################################################################
+# FLUXO COMPLETO DE TESTE
+###############################################################################
+# 
+# Para testar o fluxo completo:
+# 1. Primeiro, crie um leilão (seção AUCTIONS)
+# 2. Copie o ID do leilão criado
+# 3. Use esse ID para criar lances (seção BIDS)
+# 4. Liste os lances do leilão
+# 5. Aguarde o leilão expirar (conforme AUCTION_INTERVAL no .env)
+# 6. Busque o lance vencedor
+#
+# Nota: Para que os usuários existam, eles devem estar cadastrados no MongoDB.
+# Você pode inserir usuários diretamente no banco ou criar um endpoint de criação.
+###############################################################################

@@ -1,0 +1,31 @@
+# Ignorar diretórios de dados do Docker
+.docker/
+
+# Arquivos Git
+.git/
+.gitignore
+
+# Arquivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Binários compilados
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Arquivos de teste
+*_test.go
+*.test
+
+# Arquivos de documentação (não necessários no build)
+doc/
+*.md
+!README.md
+
+# Arquivos de ambiente (carregados separadamente)
+# cmd/auction/.env
