@@ -27,6 +27,7 @@ graph TB
         G[MongoDB Repositories]
         H[Logger]
         I[Database Connection]
+        J[Auction Close Routine]
     end
 
     A --> C
@@ -36,11 +37,13 @@ graph TB
     G --> F
     G --> I
     C --> D
+    J --> G
 ```
 
 ## Estrutura de Diretórios
 
 ```
+├── .env                         # Variáveis de ambiente (raiz do projeto)
 ├── cmd/
 │   └── auction/
 │       └── main.go              # Ponto de entrada, injeção de dependências
@@ -63,6 +66,9 @@ graph TB
 │   │   │
 │   │   └── database/            # Implementação dos repositórios
 │   │       ├── auction/
+│   │       │   ├── create_auction.go
+│   │       │   ├── find_auction.go
+│   │       │   └── close_auction.go  # Goroutine de fechamento
 │   │       ├── bid/
 │   │       └── user/
 │   │
@@ -84,7 +90,7 @@ A camada mais interna contém as **entidades de negócio** e suas regras:
 
 | Entidade | Arquivo | Responsabilidade |
 |----------|---------|------------------|
-| `Auction` | `auction_entity.go` | Leilão com validação, estados e interface do repositório |
+| `Auction` | `auction_entity.go` | Leilão com validação, estados, campos `CreatedAt` e `ExpiresAt` |
 | `Bid` | `bid_entity.go` | Lance com validação e interface do repositório |
 | `User` | `user_entity.go` | Usuário e interface do repositório |
 
@@ -117,6 +123,7 @@ Implementações concretas das interfaces:
 | Repositories | MongoDB | Persistência de dados |
 | Controllers | Gin | Roteamento e serialização HTTP |
 | Logger | Zap | Logs estruturados |
+| Close Routine | Goroutine | Fechamento automático de leilões |
 
 ### 4. Camada de Apresentação (Controllers)
 
@@ -133,12 +140,14 @@ graph LR
     A[main.go] --> B[Controllers]
     A --> C[Use Cases]
     A --> D[Repositories]
+    A --> E[Close Routine]
     
     B --> C
-    C --> E[Entity Interfaces]
-    D --> E
+    C --> F[Entity Interfaces]
+    D --> F
+    E --> D
     
-    style E fill:#f9f,stroke:#333,stroke-width:2px
+    style F fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 A regra de dependência diz que camadas externas podem depender de camadas internas, mas nunca o contrário. As **interfaces definidas nas entidades** permitem que os use cases não dependam diretamente das implementações de infraestrutura.
@@ -161,6 +170,9 @@ O padrão é aplicado através de:
    auctionRepository := auction.NewAuctionRepository(database)
    auctionController := auction_controller.NewAuctionController(
        auction_usecase.NewAuctionUseCase(auctionRepository, bidRepository))
+   
+   // Inicia goroutine de fechamento automático
+   auctionRepository.StartAuctionCloserRoutine(ctx)
    ```
 
 ## Tratamento de Erros
@@ -175,10 +187,34 @@ O sistema utiliza um padrão centralizado de erros:
 
 ## Concorrência
 
-O repositório de lances (`BidRepository`) implementa **processamento concorrente** usando:
+O sistema implementa **três mecanismos de concorrência**:
+
+### 1. Processamento de Lances (`BidRepository`)
 
 - `sync.WaitGroup` para sincronização de goroutines
 - `sync.Mutex` para proteção de mapas compartilhados
 - Cache em memória para status e tempo de expiração de leilões
 
+### 2. Goroutine de Fechamento Automático (`close_auction.go`)
+
+- Executa em background a cada `AUCTION_CLOSE_CHECK_INTERVAL`
+- Usa `time.Ticker` para execução periódica
+- Respeita `context.Done()` para shutdown graceful
+
+### 3. Validação em Tempo Real de Expiração
+
+- Lances são rejeitados **imediatamente** se `now > expires_at`
+- Não depende da goroutine de fechamento ter atualizado o status
+- Garante zero lances após expiração
+
+## Configuração
+
+O arquivo `.env` deve estar na **raiz do projeto**. A aplicação carrega automaticamente as variáveis de ambiente no startup.
+
+Veja [BUSINESS_RULES.md](BUSINESS_RULES.md) para detalhes das variáveis de configuração.
+
 Veja [DATA_FLOW.md](DATA_FLOW.md) para detalhes do fluxo de criação de lances.
+
+## Architecture Decision Records (ADRs)
+
+- [ADR-001: Estratégia de Fechamento Automático de Leilões](ADR-001-auction-closing-strategy.md)

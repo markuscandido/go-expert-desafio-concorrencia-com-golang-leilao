@@ -60,7 +60,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=compressor /auction /auction
 
 # Copia o arquivo de configuração .env
-COPY cmd/auction/.env /cmd/auction/.env
+COPY .env .env
 
 # Expõe a porta da aplicação
 EXPOSE 8080

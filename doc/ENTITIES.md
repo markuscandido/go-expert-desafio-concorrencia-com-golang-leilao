@@ -16,7 +16,8 @@ erDiagram
         string description
         int condition
         int status
-        timestamp timestamp
+        timestamp created_at
+        timestamp expires_at
     }
 
     BID {
@@ -49,9 +50,17 @@ type Auction struct {
     Description string           // Descrição detalhada
     Condition   ProductCondition // Estado do produto
     Status      AuctionStatus    // Status do leilão
-    Timestamp   time.Time        // Data/hora de criação
+    CreatedAt   time.Time        // Data/hora de criação
+    ExpiresAt   time.Time        // Data/hora de expiração
 }
 ```
+
+### Campos de Data
+
+| Campo | Descrição |
+|-------|-----------|
+| `CreatedAt` | Data/hora em que o leilão foi criado |
+| `ExpiresAt` | Data/hora de expiração, calculada como `CreatedAt + AUCTION_INTERVAL` |
 
 ### ProductCondition (Condição do Produto)
 
@@ -91,7 +100,8 @@ func (au *Auction) Validate() *internal_error.InternalError {
     "description": "Novo na caixa lacrada",
     "condition": 1,
     "status": 0,
-    "timestamp": 1703260000
+    "created_at": 1703260000,
+    "expires_at": 1703260300
 }
 ```
 
@@ -127,11 +137,15 @@ func (b *Bid) Validate() *internal_error.InternalError {
 
 1. **Lance só aceito em leilão ativo:**
    - Verifica se `status == Active`
-   - Verifica se tempo atual < tempo de expiração
+   - Verifica se tempo atual < `expires_at`
 
-2. **Tempo de expiração:**
+2. **Validação de expiração em tempo real:**
    ```go
-   expirationTime = auction.Timestamp + AUCTION_INTERVAL
+   // Mesmo antes da goroutine de fechamento atualizar o status,
+   // lances são rejeitados se now > expires_at
+   if auctionStatus == Completed || now.After(auctionEndTime) {
+       return // Lance rejeitado
+   }
    ```
 
 ### Coleção MongoDB
@@ -242,7 +256,8 @@ type AuctionOutputDTO struct {
     Description string           `json:"description"`
     Condition   ProductCondition `json:"condition"`
     Status      AuctionStatus    `json:"status"`
-    Timestamp   time.Time        `json:"timestamp"`
+    CreatedAt   time.Time        `json:"created_at"`
+    ExpiresAt   time.Time        `json:"expires_at"`
 }
 ```
 
@@ -266,3 +281,14 @@ type WinningInfoOutputDTO struct {
     Bid     *BidOutputDTO    `json:"bid,omitempty"`
 }
 ```
+
+---
+
+## Configuração
+
+O arquivo `.env` deve estar na **raiz do projeto**. Principais variáveis relacionadas a entidades:
+
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `AUCTION_INTERVAL` | Tempo de duração do leilão | 5m |
+| `AUCTION_CLOSE_CHECK_INTERVAL` | Intervalo de verificação de leilões expirados | 10s |
